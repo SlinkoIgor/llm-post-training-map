@@ -13,7 +13,7 @@ Open [the standalone HTML](dist/post-training-map.html) in a browser. It works o
 - Expand all reveals every formula with the method name above it.
 - Hover or click a component to highlight the same component across the map and its rendered equations. Escape clears a selection.
 - Dots indicate critic requirements. The information button opens notation, placement assumptions, and primary sources.
-- Every pipeline ends with a loss → Actor LLM update. The stronger blue Actor LLM block is the trainable policy πθ; click it to highlight the actor in every card and formula. For distillation, this is the student model. RL cards show πθ explicitly in the importance-ratio definition.
+- Every pipeline ends with a loss → Actor LLM update. The stronger blue Actor LLM block is the trainable policy πθ; click it to highlight the actor in every card and formula. For distillation, this is the student model. PPO, GRPO, and CISPO cards show πθ explicitly in the importance-ratio definition.
 - Blue blocks identify LLM-based components: Actor LLM, Teacher LLM, Ref LLM, Critic LLM, and Reward LLM. The reward-source switch changes the evaluator in RFT, PPO, GRPO, and CISPO between Reward LLM and a non-neural Verifier.
 - Objectives are shown without line breaks inside expressions. Independent definitions appear on separate lines.
 
@@ -23,7 +23,9 @@ Cards are created once. Expanding, collapsing, and highlighting update existing 
 
 The horizontal axis distinguishes external responses from current-policy rollouts. Offline means fixed data, not necessarily every off-policy setting.
 
-The vertical axis distinguishes reward-based policy gradients from direct token, preference, or KL matching. On-policy hard distillation uses teacher token labels on student-generated prefixes; on-policy soft distillation uses direct KL matching (GKD). Both detach the sampling step. Policy-gradient distillation is a different variant.
+The vertical axis distinguishes recipes that use explicit reward scores from those that use supplied training targets. Scores can come from a correctness Verifier or a learned Reward LLM, as selected by the reward-source switch. RFT uses scores to filter responses; PPO, GRPO, and CISPO use them to update the policy. DPO uses supplied preference pairs, SFT uses supplied target tokens, and distillation uses teacher outputs without explicit reward scores.
+
+On-policy hard distillation uses teacher token labels on student-generated prefixes; on-policy soft distillation uses direct KL matching (GKD). Both detach the sampling step. Policy-gradient distillation is a different variant.
 
 PPO, GRPO, and CISPO use recent rollout snapshots and importance corrections. Their on-policy placement describes their common data-collection loop, not equality between the sampling and trainable policies at every update.
 

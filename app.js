@@ -29,65 +29,65 @@ const formulas = {
 };
 const methods = [
   {
-    id: 'sft', title: 'SFT', full: 'Supervised Fine-Tuning', cell: 'nonrl-external',
+    id: 'sft', title: 'SFT', full: 'Supervised Fine-Tuning', cell: 'no-reward-external',
     critic: false, parts: ['targets','ce','actor'], connectors: ['→','→'],
     formula: '\\mathcal L_{\\mathrm{SFT}}=-\\mathbb E_{(x,y)\\sim\\mathcal D}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
     source: ['SFT / RLHF · InstructGPT', 'https://arxiv.org/abs/2203.02155']
   },
   {
-    id: 'rft', title: 'RFT', full: 'Rejection Sampling Fine-Tuning', cell: 'nonrl-external',
+    id: 'rft', title: 'RFT', full: 'Rejection Sampling Fine-Tuning', cell: 'reward-external',
     critic: false, parts: ['reward','filter','ce','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{RFT}}=-\\mathbb E_{(x,y)\\sim\\mathcal D_{\\mathrm{keep}}}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
     definitions: ['\\mathcal D_{\\mathrm{keep}}=' + math('filter', '\\{(x,y):r(x,y)\\geq\\tau\\}')],
     source: ['RFT / GRPO · DeepSeekMath', 'https://arxiv.org/abs/2402.03300']
   },
   {
-    id: 'dpo', title: 'DPO', full: 'Direct Preference Optimization', cell: 'nonrl-external',
+    id: 'dpo', title: 'DPO', full: 'Direct Preference Optimization', cell: 'no-reward-external',
     critic: false, parts: ['pairs','ref','pair','actor'], connectors: ['+','→','→'],
     formula: '\\mathcal L_{\\mathrm{DPO}}=-\\mathbb E_{\\mathcal D}\\!\\left[' + math('pair', '\\log\\sigma\\!\\left(\\beta\\left[\\log\\frac{' + actorPolicy + '(y^+\\mid x)}{' + refPlus + '}-\\log\\frac{' + actorPolicy + '(y^-\\mid x)}{' + refMinus + '}\\right]\\right)') + '\\right]',
     source: ['DPO · Rafailov et al.', 'https://arxiv.org/abs/2305.18290']
   },
   {
-    id: 'kd-hard-off', title: 'Hard distillation', full: 'Off-Policy Hard Distillation', cell: 'nonrl-external',
+    id: 'kd-hard-off', title: 'Hard distillation', full: 'Off-Policy Hard Distillation', cell: 'no-reward-external',
     critic: false, parts: ['teacher','tokens','ce','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{hard}}=-\\mathbb E_{x,\\,y\\sim ' + math('teacher', 'p_T') + '}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
     source: ['Hard distillation · Sequence-Level Knowledge Distillation', 'https://arxiv.org/abs/1606.07947']
   },
   {
-    id: 'kd-off', title: 'Soft distillation', full: 'Off-Policy Soft Distillation', cell: 'nonrl-external',
+    id: 'kd-off', title: 'Soft distillation', full: 'Off-Policy Soft Distillation', cell: 'no-reward-external',
     critic: false, parts: ['teacher','logits','kl','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{KD}}=\\mathbb E_{x,\\,y\\sim ' + math('teacher', 'p_T') + '}\\!\\left[\\frac1{|y|}\\sum_t ' + klTerm + '\\right]',
     source: ['Soft distillation · Generalized Knowledge Distillation', 'https://arxiv.org/abs/2306.13649']
   },
   {
-    id: 'kd-hard-on', title: 'Hard distillation', full: 'On-Policy Hard Distillation · Teacher Labels', cell: 'nonrl-current',
+    id: 'kd-hard-on', title: 'Hard distillation', full: 'On-Policy Hard Distillation · Teacher Labels', cell: 'no-reward-current',
     critic: false, parts: ['teacher','tokens','ce','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{hard,on}}=-\\mathbb E_{x,\\,y\\sim\\operatorname{sg}(' + actorPolicy + ')}\\!\\left[\\frac1{|y|}\\sum_t ' + math('ce', '\\log ' + actorPolicy + '(\\tilde y_t\\mid h_t)') + '\\right]',
     definitions: [math('tokens', '\\tilde y_t') + '=\\operatorname*{arg\\,max}_v\\,' + math('teacher', 'p_T(v\\mid h_t)')],
     source: ['On-policy hard labels · DAgger-style imitation', 'https://arxiv.org/abs/1011.0686']
   },
   {
-    id: 'kd-on', title: 'Soft distillation', full: 'On-Policy Soft Distillation · Direct KL (GKD)', cell: 'nonrl-current',
+    id: 'kd-on', title: 'Soft distillation', full: 'On-Policy Soft Distillation · Direct KL (GKD)', cell: 'no-reward-current',
     critic: false, parts: ['teacher','logits','kl','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{GKD}}=\\mathbb E_{x,\\,y\\sim\\operatorname{sg}(' + actorPolicy + ')}\\!\\left[\\frac1{|y|}\\sum_t ' + klTerm + '\\right]',
     source: ['On-policy KL matching · GKD', 'https://arxiv.org/abs/2306.13649']
   },
   {
-    id: 'ppo', title: 'PPO', full: 'Proximal Policy Optimization', cell: 'rl-current',
+    id: 'ppo', title: 'PPO', full: 'Proximal Policy Optimization', cell: 'reward-current',
     critic: true, parts: ['ref','reward','critic','clip','actor'], connectors: ['+','+','→','→'],
     formula: '\\mathcal J_{\\mathrm{PPO}}=\\mathbb E_t[' + clipTerm + '(' + math('actor', '\\rho_t') + ',\\hat A_t)]',
     definitions: [tokenRatio, '\\hat A_t=\\operatorname{GAE}(r_t^{\\mathrm{reg}},' + math('critic', 'V_\\psi') + ')'],
     source: ['PPO · Schulman et al.', 'https://arxiv.org/abs/1707.06347']
   },
   {
-    id: 'grpo', title: 'GRPO', full: 'Group Relative Policy Optimization', cell: 'rl-current',
+    id: 'grpo', title: 'GRPO', full: 'Group Relative Policy Optimization', cell: 'reward-current',
     critic: false, parts: ['ref','reward','group','clip','actor'], connectors: ['+','+','→','→'],
     formula: '\\mathcal J_{\\mathrm{GRPO}}=\\mathbb E\\!\\left[\\frac1G\\sum_i\\frac1{|y_i|}\\sum_t\\bigl(' + clipTerm + '(' + math('actor', '\\rho_{i,t}') + ',\\hat A_i)-\\beta K_{i,t}\\bigr)\\right]',
     definitions: [groupRatio, '\\hat A_i=' + groupTerm],
     source: ['GRPO · DeepSeekMath', 'https://arxiv.org/abs/2402.03300']
   },
   {
-    id: 'cispo', title: 'CISPO', full: 'Clipped IS-weight Policy Optimization', cell: 'rl-current',
+    id: 'cispo', title: 'CISPO', full: 'Clipped IS-weight Policy Optimization', cell: 'reward-current',
     critic: false, parts: ['reward','group','weights','actor'], connectors: ['+','→','→'],
     formula: '\\mathcal J_{\\mathrm{CISPO}}=\\mathbb E\\!\\left[\\frac1{\\sum_i|y_i|}\\sum_{i,t}\\operatorname{sg}(\\bar\\rho_{i,t})\\,\\hat A_i\\log ' + actorPolicy + '(y_{i,t}\\mid h_{i,t})\\right]',
     definitions: [groupRatio, '\\hat A_i=' + groupTerm, '\\bar\\rho_{i,t}=' + math('weights', '\\operatorname{clip}(\\rho_{i,t},1-\\epsilon_\\ell,1+\\epsilon_h)')],
