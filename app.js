@@ -28,71 +28,91 @@ const tokenRatio = '\\rho_t=\\frac{' + actorPolicy + '(y_t\\mid h_t)}{\\pi_{\\ma
 const groupRatio = '\\rho_{i,t}=\\frac{' + actorPolicy + '(y_{i,t}\\mid h_{i,t})}{\\pi_{\\mathrm{old}}(y_{i,t}\\mid h_{i,t})}';
 const refPlus = math('ref', '\\pi_{\\mathrm{ref}}(y^+\\mid x)');
 const refMinus = math('ref', '\\pi_{\\mathrm{ref}}(y^-\\mid x)');
+const dpoLoss = dataset => '\\mathcal L_{\\mathrm{DPO}}=-\\mathbb E_{' + dataset + '}\\!\\left[' + math('pair', '\\log\\sigma\\!\\left(\\beta\\left[\\log\\frac{' + actorPolicy + '(y^+\\mid x)}{' + refPlus + '}-\\log\\frac{' + actorPolicy + '(y^-\\mid x)}{' + refMinus + '}\\right]\\right)') + '\\right]';
 const methods = [
   {
-    id: 'sft', title: 'SFT', full: 'Supervised Fine-Tuning', cell: 'no-reward-external',
+    id: 'sft', title: 'SFT', full: 'Supervised Fine-Tuning', cell: 'no-reward-offline', mode: 'offline',
     critic: false, parts: ['targets','ce','actor'], connectors: ['→','→'],
     formula: '\\mathcal L_{\\mathrm{SFT}}=-\\mathbb E_{(x,y)\\sim\\mathcal D}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
     source: ['SFT / RLHF · InstructGPT', 'https://arxiv.org/abs/2203.02155']
   },
   {
-    id: 'rft', title: 'RFT', full: 'Rejection Sampling Fine-Tuning', cell: 'reward-external',
+    id: 'rft', title: 'RFT', full: 'Rejection Sampling Fine-Tuning', cell: 'reward-offline', mode: 'offline',
     critic: false, parts: ['reward','filter','ce','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{RFT}}=-\\mathbb E_{(x,y)\\sim\\mathcal D_{\\mathrm{keep}}}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
     definitions: ['\\mathcal D_{\\mathrm{keep}}=' + math('filter', '\\{(x,y):r(x,y)\\geq\\tau\\}')],
     source: ['RFT / GRPO · DeepSeekMath', 'https://arxiv.org/abs/2402.03300']
   },
   {
-    id: 'dpo', title: 'DPO', full: 'Direct Preference Optimization', cell: 'no-reward-external',
+    id: 'dpo', title: 'DPO', full: 'Direct Preference Optimization', cell: 'no-reward-offline', mode: 'offline',
     critic: false, parts: ['pairs','ref','pair','actor'], connectors: ['+','→','→'],
-    formula: '\\mathcal L_{\\mathrm{DPO}}=-\\mathbb E_{\\mathcal D}\\!\\left[' + math('pair', '\\log\\sigma\\!\\left(\\beta\\left[\\log\\frac{' + actorPolicy + '(y^+\\mid x)}{' + refPlus + '}-\\log\\frac{' + actorPolicy + '(y^-\\mid x)}{' + refMinus + '}\\right]\\right)') + '\\right]',
+    formula: dpoLoss('\\mathcal D'),
     source: ['DPO · Rafailov et al.', 'https://arxiv.org/abs/2305.18290']
   },
   {
-    id: 'kd-hard-off', title: 'Hard distillation', full: 'Off-Policy Hard Distillation', cell: 'no-reward-external',
+    id: 'kd-hard-off', title: 'Hard distillation', full: 'Offline Hard Distillation · Teacher Responses', cell: 'no-reward-offline', mode: 'offline',
     critic: false, parts: ['teacher','tokens','ce','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{hard}}=-\\mathbb E_{x,\\,y\\sim ' + math('teacher', 'p_T') + '}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
     source: ['Hard distillation · Sequence-Level Knowledge Distillation', 'https://arxiv.org/abs/1606.07947']
   },
   {
-    id: 'kd-off', title: 'Soft distillation', full: 'Off-Policy Soft Distillation', cell: 'no-reward-external',
+    id: 'kd-off', title: 'Soft distillation', full: 'Offline Soft Distillation · Teacher Prefixes', cell: 'no-reward-offline', mode: 'offline',
     critic: false, parts: ['teacher','logits','kl','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{KD}}=\\mathbb E_{x,\\,y\\sim ' + math('teacher', 'p_T') + '}\\!\\left[\\frac1{|y|}\\sum_t ' + klTerm + '\\right]',
     source: ['Soft distillation · Generalized Knowledge Distillation', 'https://arxiv.org/abs/2306.13649']
   },
   {
-    id: 'kd-hard-on', title: 'Hard distillation', full: 'On-Policy Hard Distillation · Teacher Labels', cell: 'no-reward-current',
+    id: 'sft-online', title: 'SFT', full: 'Online Supervised Fine-Tuning · Fresh Labels', cell: 'no-reward-online', mode: 'online', alternative: true,
+    critic: false, parts: ['targets','ce','actor'], connectors: ['→','→'],
+    formula: '\\mathcal L_{\\mathrm{SFT}}=-\\mathbb E_{(x,y)\\sim\\mathcal D_k}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
+    source: ['Online supervised learning · DAgger', 'https://arxiv.org/abs/1011.0686']
+  },
+  {
+    id: 'dpo-online', title: 'DPO', full: 'Online Direct Preference Optimization · Fresh Pairs', cell: 'no-reward-online', mode: 'online', alternative: true,
+    critic: false, parts: ['pairs','ref','pair','actor'], connectors: ['+','→','→'],
+    formula: dpoLoss('\\mathcal D_k'),
+    source: ['Iterative DPO · Self-Rewarding Language Models', 'https://arxiv.org/abs/2401.10020']
+  },
+  {
+    id: 'kd-hard-on', title: 'Hard distillation', full: 'Online Hard Distillation · Student Prefixes', cell: 'no-reward-online', mode: 'online', alternative: true,
     critic: false, parts: ['teacher','tokens','ce','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{hard,on}}=-\\mathbb E_{x,\\,y\\sim\\operatorname{sg}(' + actorPolicy + ')}\\!\\left[\\frac1{|y|}\\sum_t ' + math('ce', '\\log ' + actorPolicy + '(\\tilde y_t\\mid h_t)') + '\\right]',
     definitions: [math('tokens', '\\tilde y_t') + '=\\operatorname*{arg\\,max}_v\\,' + math('teacher', 'p_T(v\\mid h_t)')],
     source: ['On-policy hard labels · DAgger-style imitation', 'https://arxiv.org/abs/1011.0686']
   },
   {
-    id: 'kd-on', title: 'Soft distillation', full: 'On-Policy Soft Distillation · Direct KL (GKD)', cell: 'no-reward-current',
+    id: 'kd-on', title: 'Soft distillation', full: 'Online Soft Distillation · Student Prefixes (GKD)', cell: 'no-reward-online', mode: 'online', alternative: true,
     critic: false, parts: ['teacher','logits','kl','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{GKD}}=\\mathbb E_{x,\\,y\\sim\\operatorname{sg}(' + actorPolicy + ')}\\!\\left[\\frac1{|y|}\\sum_t ' + klTerm + '\\right]',
     source: ['On-policy KL matching · GKD', 'https://arxiv.org/abs/2306.13649']
   },
   {
-    id: 'ppo', title: 'PPO', full: 'Proximal Policy Optimization', cell: 'reward-current',
+    id: 'ppo', title: 'PPO', full: 'Proximal Policy Optimization', cell: 'reward-online', mode: 'online',
     critic: true, parts: ['ref','reward','critic','clip','actor'], connectors: ['+','+','→','→'],
     formula: '\\mathcal J_{\\mathrm{PPO}}=\\mathbb E_t[' + tokenSurrogate + ']',
     definitions: [tokenRatio, clippedRatioDefinition('_t'), '\\hat A_t=\\operatorname{GAE}(r_t^{\\mathrm{reg}},' + math('critic', 'V_\\psi') + ')'],
     source: ['PPO · Schulman et al.', 'https://arxiv.org/abs/1707.06347']
   },
   {
-    id: 'grpo', title: 'GRPO', full: 'Group Relative Policy Optimization', cell: 'reward-current',
+    id: 'grpo', title: 'GRPO', full: 'Group Relative Policy Optimization', cell: 'reward-online', mode: 'online',
     critic: false, parts: ['ref','reward','group','clip','actor'], connectors: ['+','+','→','→'],
     formula: '\\mathcal J_{\\mathrm{GRPO}}=\\mathbb E\\!\\left[\\frac1G\\sum_i\\frac1{|y_i|}\\sum_t\\bigl(' + groupSurrogate + '-\\beta K_{i,t}\\bigr)\\right]',
     definitions: [groupRatio, clippedRatioDefinition('_{i,t}'), '\\hat A_i=' + groupTerm],
     source: ['GRPO · DeepSeekMath', 'https://arxiv.org/abs/2402.03300']
   },
   {
-    id: 'cispo', title: 'CISPO', full: 'Clipped IS-weight Policy Optimization', cell: 'reward-current',
+    id: 'cispo', title: 'CISPO', full: 'Clipped IS-weight Policy Optimization', cell: 'reward-online', mode: 'online',
     critic: false, parts: ['reward','group','weights','actor'], connectors: ['+','→','→'],
     formula: '\\mathcal J_{\\mathrm{CISPO}}=\\mathbb E\\!\\left[\\frac1{\\sum_i|y_i|}\\sum_{i,t}' + math('weights', '\\operatorname{sg}(' + rhoClip + '_{i,t})') + '\\,\\hat A_i\\log ' + actorPolicy + '(y_{i,t}\\mid h_{i,t})\\right]',
     definitions: [groupRatio, clippedRatioDefinition('_{i,t}', 'weights', '\\epsilon_\\ell', '\\epsilon_h'), '\\hat A_i=' + groupTerm],
     source: ['CISPO · MiniMax-M1', 'https://arxiv.org/abs/2506.13585']
+  },
+  {
+    id: 'rft-online', title: 'RFT', full: 'Online Rejection Sampling Fine-Tuning · Fresh Rollouts', cell: 'reward-online', mode: 'online', alternative: true,
+    critic: false, parts: ['reward','filter','ce','actor'], connectors: ['→','→','→'],
+    formula: '\\mathcal L_{\\mathrm{RFT}}=-\\mathbb E_{(x,y)\\sim\\mathcal D_{\\mathrm{keep}}^{(k)}}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
+    definitions: ['\\mathcal D_{\\mathrm{keep}}^{(k)}=' + math('filter', '\\{(x,y)\\in\\mathcal D_k:r(x,y)\\geq\\tau\\}'), 'y\\sim ' + math('actor', '\\pi_{\\theta_k}(\\cdot\\mid x)')],
+    source: ['Iterative rejection fine-tuning · STaR', 'https://arxiv.org/abs/2203.14465']
   }
 ];
 
@@ -108,9 +128,11 @@ function componentHTML(part) {
 }
 
 function cardHTML(m) {
-  return '<article class="method-card" id="card-' + m.id + '" data-id="' + m.id + '" data-critic="' + (m.critic ? 'yes' : 'none') + '">' +
+  const mode = m.mode === 'offline' ? 'Offline' : 'Online';
+  const recipe = m.alternative ? 'Alternative' : 'Typical';
+  return '<article class="method-card' + (m.alternative ? ' alternative' : '') + '" id="card-' + m.id + '" data-id="' + m.id + '" data-mode="' + m.mode + '" data-recipe="' + recipe.toLowerCase() + '" data-critic="' + (m.critic ? 'yes' : 'none') + '">' +
     '<div class="method-header"><button class="method-toggle" data-toggle="' + m.id + '" aria-expanded="false" aria-controls="detail-' + m.id + '">' +
-      '<i class="critic-dot ' + (m.critic ? 'has-critic' : 'no-critic') + '" aria-label="' + (m.critic ? 'Critic required' : 'No critic') + '"></i><span class="method-name">' + escapeHTML(m.title) + '</span><span class="chevron" aria-hidden="true">⌄</span></button>' +
+      '<i class="critic-dot ' + (m.critic ? 'has-critic' : 'no-critic') + '" aria-label="' + (m.critic ? 'Critic required' : 'No critic') + '"></i><span class="method-name">' + escapeHTML(m.title) + '</span><span class="method-mode" title="' + recipe + ' ' + m.mode + ' recipe">' + mode + '</span><span class="chevron" aria-hidden="true">⌄</span></button>' +
       '<div class="pipeline" aria-label="Training signal and actor update">' + m.parts.map((part, i) => (i ? '<span class="part-connector" aria-hidden="true">' + m.connectors[i-1] + '</span>' : '') + componentHTML(part)).join('') + '</div>' +
     '</div><div class="method-detail" id="detail-' + m.id + '" hidden><h3 class="formula-title">' + escapeHTML(m.full) + '</h3><div class="formula" data-method-formula="' + m.id + '"></div>' + (m.definitions || []).map((_, i) => '<div class="formula definition" data-definition-index="' + i + '"></div>').join('') + '</div></article>';
 }

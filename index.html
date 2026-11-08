@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Compare LLM post-training methods by data source, reward use, and shared components.">
+  <meta name="description" content="Compare typical and alternative offline and online LLM post-training recipes by reward use and shared components.">
   <title>Post-training</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='11' height='11' rx='2' fill='%234b7a66'/%3E%3Crect x='18' y='3' width='11' height='11' rx='2' fill='%234b7a66'/%3E%3Crect x='3' y='18' width='11' height='11' rx='2' fill='%234b7a66'/%3E%3Crect x='18' y='18' width='11' height='11' rx='2' fill='%23cbded1'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="vendor/katex.min.css">
-  <link rel="stylesheet" href="styles.css?v=clip">
+  <link rel="stylesheet" href="styles.css?v=modes">
   <script defer src="vendor/katex.min.js"></script>
-  <script defer src="app.js?v=clip"></script>
+  <script defer src="app.js?v=modes"></script>
 </head>
 <body>
   <main class="page">
@@ -23,24 +23,32 @@
     </header>
 
     <div class="map-controls">
-      <div class="legend" aria-label="Component and critic colors"><span class="llm-key">LLM</span><span><i class="critic-dot no-critic"></i>No critic</span><span><i class="critic-dot has-critic"></i>Critic</span></div>
+      <div class="legend" aria-label="Component colors, critic requirements, and alternative recipes"><span class="llm-key">LLM</span><span><i class="critic-dot no-critic"></i>No critic</span><span><i class="critic-dot has-critic"></i>Critic</span><span title="Dashed outlines mark alternative recipes; unoutlined rows show typical recipes"><i class="alternative-key" aria-hidden="true"></i>Alternative</span></div>
       <div class="reward-control"><span>Reward</span><div class="reward-options" role="group" aria-label="Reward source"><button data-reward-source="model" aria-pressed="false">Reward LLM</button><button data-reward-source="verifier" aria-pressed="true">Verifier</button></div></div>
     </div>
 
     <div class="matrix" id="matrix">
       <div class="axis-corner" aria-hidden="true"></div>
-      <h2 class="column-heading">Off-policy</h2>
-      <h2 class="column-heading">On-policy</h2>
+      <h2 class="column-heading" title="Training data is prepared before fitting; multiple epochs are possible">Offline</h2>
+      <h2 class="column-heading" title="Fresh training examples are collected as the model changes">Online</h2>
       <h2 class="row-heading" title="Uses supplied targets, preference pairs, or teacher outputs">Doesn't use rewards</h2>
-      <section class="cell" id="no-reward-external" aria-label="Doesn't use rewards, off-policy"><h3 class="mobile-cell-heading">Doesn't use rewards · Off-policy</h3><div class="card-list"></div></section>
-      <section class="cell" id="no-reward-current" aria-label="Doesn't use rewards, on-policy"><h3 class="mobile-cell-heading">Doesn't use rewards · On-policy</h3><div class="card-list"></div></section>
+      <section class="cell" id="no-reward-offline" aria-label="Doesn't use rewards, offline"><h3 class="mobile-cell-heading">Doesn't use rewards · Offline</h3><div class="card-list"></div></section>
+      <section class="cell" id="no-reward-online" aria-label="Doesn't use rewards, online"><h3 class="mobile-cell-heading">Doesn't use rewards · Online</h3><div class="card-list"></div></section>
       <h2 class="row-heading" title="Requires response scores from a correctness check or Reward LLM">Uses rewards</h2>
-      <section class="cell" id="reward-external" aria-label="Uses rewards, off-policy"><h3 class="mobile-cell-heading">Uses rewards · Off-policy</h3><div class="card-list"></div></section>
-      <section class="cell" id="reward-current" aria-label="Uses rewards, on-policy"><h3 class="mobile-cell-heading">Uses rewards · On-policy</h3><div class="card-list"></div></section>
+      <section class="cell" id="reward-offline" aria-label="Uses rewards, offline"><h3 class="mobile-cell-heading">Uses rewards · Offline</h3><div class="card-list"></div></section>
+      <section class="cell" id="reward-online" aria-label="Uses rewards, online"><h3 class="mobile-cell-heading">Uses rewards · Online</h3><div class="card-list"></div></section>
     </div>
 
     <section id="reading-notes" class="reading-notes" aria-label="Notation and sources" hidden>
-      <div><h2>Reading the map</h2><p>Click a component to highlight the same part in other methods. Click a method name to reveal its formula.</p><p>Blue blocks are LLM-based components. The stronger blue Actor LLM is the trainable policy πθ (the student in distillation); the final loss → Actor LLM arrow means a weight update. Reward and critic models use scalar output heads. The Reward switch selects a learned reward model or a correctness verifier for RFT, PPO, GRPO, and CISPO.</p><p>The reward axis refers to explicit response scores from a correctness check or Reward LLM. RFT uses scores to filter responses; PPO, GRPO, and CISPO use them to update the policy. DPO uses supplied preference pairs; SFT and distillation use supplied or teacher targets. Placements describe common recipes. Off-policy means external responses; offline means a fixed dataset. PPO, GRPO, and CISPO sample recent policy snapshots and correct drift with importance ratios.</p><p>Hard distillation matches teacher tokens with CE; soft distillation matches teacher distributions with KL. On-policy hard distillation uses teacher labels on student-generated prefixes; on-policy soft distillation uses direct KL matching (GKD). Both detach the sampling step. Policy-gradient distillation is another variant.</p><p><strong>πθ</strong> actor · <strong>πref</strong> reference · <strong>πold</strong> rollout snapshot · <strong>pT</strong> teacher · <strong>hₜ</strong> prefix · <strong>sg</strong> stop-gradient. Minimize L; maximize J. PPO rewards include reference KL; GRPO shows it explicitly; the original CISPO recipe omits it.</p></div>
+      <div>
+        <h2>Reading the map</h2>
+        <p>Click a component to highlight shared parts. Click a method name to reveal its formula. Unoutlined rows show typical recipes; dashed cards show alternatives.</p>
+        <p>Offline uses training data prepared before fitting; it may involve multiple epochs. Online refreshes training data as the model changes. Online/offline describe data collection; on-policy/off-policy describe the sampling policy. Dₖ is the dataset refreshed in round k.</p>
+        <p>The online SFT and DPO alternatives need fresh labels or preference pairs. Online RFT repeatedly generates and filters fresh actor responses. Online distillation here uses student-generated prefixes with detached sampling: teacher token labels for hard distillation, direct KL matching (GKD) for soft distillation.</p>
+        <p>The reward axis refers to explicit response scores. RFT uses them to filter responses; PPO, GRPO, and CISPO use them to update the policy. DPO uses supplied preference pairs. The Reward switch selects a correctness Verifier or Reward LLM.</p>
+        <p>Blue blocks are LLM-based components. The stronger blue Actor LLM is the trainable policy (the student in distillation); the final loss → Actor LLM arrow means a weight update. Reward and critic models use scalar output heads.</p>
+        <p><strong>πθ</strong> actor · <strong>πref</strong> reference · <strong>πold</strong> rollout snapshot · <strong>pT</strong> teacher · <strong>hₜ</strong> prefix · <strong>sg</strong> stop-gradient. Minimize L; maximize J. PPO rewards include reference KL; GRPO shows it explicitly; the original CISPO recipe omits it.</p>
+      </div>
       <div><h2>Sources</h2><div id="source-list"></div></div>
     </section>
   </main>
