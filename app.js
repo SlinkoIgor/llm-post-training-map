@@ -17,16 +17,17 @@ const isLLM = part => llmParts.has(part) || (part === 'reward' && state.rewardSo
 const math = (part, tex) => '\\htmlClass{math-part part-' + part + '}{' + tex + '}';
 const actorPolicy = math('actor', '\\pi_\\theta');
 const logPolicy = math('ce', '\\log ' + actorPolicy + '(y_t\\mid h_t)');
-const clipTerm = math('clip', '\\ell_{\\mathrm{clip}}');
+const rhoClip = '\\rho^{\\mathrm{clip}}';
+const tokenSurrogate = math('clip', '\\min\\!\\left(' + math('actor', '\\rho_t') + '\\hat A_t,\\,' + rhoClip + '_t\\hat A_t\\right)');
+const groupSurrogate = math('clip', '\\min\\!\\left(' + math('actor', '\\rho_{i,t}') + '\\hat A_i,\\,' + rhoClip + '_{i,t}\\hat A_i\\right)');
+const clippedRatioDefinition = (index, part = 'clip', lower = '\\epsilon', upper = lower) =>
+  rhoClip + index + '=' + math(part, '\\operatorname{clip}(' + math('actor', '\\rho' + index) + ',1-' + lower + ',1+' + upper + ')');
 const groupTerm = math('group', '\\frac{r_i-\\operatorname{mean}(\\mathbf r)}{\\operatorname{std}(\\mathbf r)+\\delta}');
 const klTerm = math('kl', 'D_{\\mathrm{KL}}\\!\\left(p_T(\\cdot\\mid h_t)\\,\\|\\,' + actorPolicy + '(\\cdot\\mid h_t)\\right)');
 const tokenRatio = '\\rho_t=\\frac{' + actorPolicy + '(y_t\\mid h_t)}{\\pi_{\\mathrm{old}}(y_t\\mid h_t)}';
 const groupRatio = '\\rho_{i,t}=\\frac{' + actorPolicy + '(y_{i,t}\\mid h_{i,t})}{\\pi_{\\mathrm{old}}(y_{i,t}\\mid h_{i,t})}';
 const refPlus = math('ref', '\\pi_{\\mathrm{ref}}(y^+\\mid x)');
 const refMinus = math('ref', '\\pi_{\\mathrm{ref}}(y^-\\mid x)');
-const formulas = {
-  clip: '\\ell_{\\mathrm{clip}}(\\rho,A)=\\min\\!\\left(\\rho A,\\operatorname{clip}(\\rho,1-\\epsilon,1+\\epsilon)A\\right)'
-};
 const methods = [
   {
     id: 'sft', title: 'SFT', full: 'Supervised Fine-Tuning', cell: 'no-reward-external',
@@ -75,22 +76,22 @@ const methods = [
   {
     id: 'ppo', title: 'PPO', full: 'Proximal Policy Optimization', cell: 'reward-current',
     critic: true, parts: ['ref','reward','critic','clip','actor'], connectors: ['+','+','→','→'],
-    formula: '\\mathcal J_{\\mathrm{PPO}}=\\mathbb E_t[' + clipTerm + '(' + math('actor', '\\rho_t') + ',\\hat A_t)]',
-    definitions: [tokenRatio, '\\hat A_t=\\operatorname{GAE}(r_t^{\\mathrm{reg}},' + math('critic', 'V_\\psi') + ')'],
+    formula: '\\mathcal J_{\\mathrm{PPO}}=\\mathbb E_t[' + tokenSurrogate + ']',
+    definitions: [tokenRatio, clippedRatioDefinition('_t'), '\\hat A_t=\\operatorname{GAE}(r_t^{\\mathrm{reg}},' + math('critic', 'V_\\psi') + ')'],
     source: ['PPO · Schulman et al.', 'https://arxiv.org/abs/1707.06347']
   },
   {
     id: 'grpo', title: 'GRPO', full: 'Group Relative Policy Optimization', cell: 'reward-current',
     critic: false, parts: ['ref','reward','group','clip','actor'], connectors: ['+','+','→','→'],
-    formula: '\\mathcal J_{\\mathrm{GRPO}}=\\mathbb E\\!\\left[\\frac1G\\sum_i\\frac1{|y_i|}\\sum_t\\bigl(' + clipTerm + '(' + math('actor', '\\rho_{i,t}') + ',\\hat A_i)-\\beta K_{i,t}\\bigr)\\right]',
-    definitions: [groupRatio, '\\hat A_i=' + groupTerm],
+    formula: '\\mathcal J_{\\mathrm{GRPO}}=\\mathbb E\\!\\left[\\frac1G\\sum_i\\frac1{|y_i|}\\sum_t\\bigl(' + groupSurrogate + '-\\beta K_{i,t}\\bigr)\\right]',
+    definitions: [groupRatio, clippedRatioDefinition('_{i,t}'), '\\hat A_i=' + groupTerm],
     source: ['GRPO · DeepSeekMath', 'https://arxiv.org/abs/2402.03300']
   },
   {
     id: 'cispo', title: 'CISPO', full: 'Clipped IS-weight Policy Optimization', cell: 'reward-current',
     critic: false, parts: ['reward','group','weights','actor'], connectors: ['+','→','→'],
-    formula: '\\mathcal J_{\\mathrm{CISPO}}=\\mathbb E\\!\\left[\\frac1{\\sum_i|y_i|}\\sum_{i,t}\\operatorname{sg}(\\bar\\rho_{i,t})\\,\\hat A_i\\log ' + actorPolicy + '(y_{i,t}\\mid h_{i,t})\\right]',
-    definitions: [groupRatio, '\\hat A_i=' + groupTerm, '\\bar\\rho_{i,t}=' + math('weights', '\\operatorname{clip}(\\rho_{i,t},1-\\epsilon_\\ell,1+\\epsilon_h)')],
+    formula: '\\mathcal J_{\\mathrm{CISPO}}=\\mathbb E\\!\\left[\\frac1{\\sum_i|y_i|}\\sum_{i,t}' + math('weights', '\\operatorname{sg}(' + rhoClip + '_{i,t})') + '\\,\\hat A_i\\log ' + actorPolicy + '(y_{i,t}\\mid h_{i,t})\\right]',
+    definitions: [groupRatio, clippedRatioDefinition('_{i,t}', 'weights', '\\epsilon_\\ell', '\\epsilon_h'), '\\hat A_i=' + groupTerm],
     source: ['CISPO · MiniMax-M1', 'https://arxiv.org/abs/2506.13585']
   }
 ];
@@ -239,7 +240,6 @@ $('#notes-toggle').addEventListener('click', () => {
   const show = $('#reading-notes').hidden;
   $('#reading-notes').hidden = !show;
   $('#notes-toggle').setAttribute('aria-expanded', show);
-  if (show) renderFormula($('[data-formula="clip"]'), formulas.clip);
   requestAnimationFrame(fitFormulas);
 });
 document.addEventListener('keydown', event => {

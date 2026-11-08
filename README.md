@@ -29,7 +29,7 @@ On-policy hard distillation uses teacher token labels on student-generated prefi
 
 PPO, GRPO, and CISPO use recent rollout snapshots and importance corrections. Their on-policy placement describes their common data-collection loop, not equality between the sampling and trainable policies at every update.
 
-Hard distillation shares token cross-entropy with SFT and RFT; soft distillation matches teacher distributions with KL. Each has off-policy and on-policy cards, differing in prefix source. PPO and GRPO share the clipped surrogate, while GRPO and CISPO share group-relative advantages. CISPO clips detached importance weights instead of the surrogate objective and omits the reference KL penalty in the original recipe.
+Hard distillation shares token cross-entropy with SFT and RFT; soft distillation matches teacher distributions with KL. Each has off-policy and on-policy cards, differing in prefix source. PPO, GRPO, and CISPO use the same explicit ρ^clip notation, with clipping bounds defined in each card. PPO and GRPO show min(ρA, ρ^clip A) directly in their objectives; CISPO uses sg(ρ^clip) as the weight on A log πθ. GRPO and CISPO share group-relative advantages. CISPO omits the reference KL penalty in the original recipe.
 
 ## Development
 
