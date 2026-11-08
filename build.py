@@ -29,9 +29,9 @@ def build():
     katex_js = re.sub(r"</script", r"<\\/script", katex_js, flags=re.I)
     app_js = re.sub(r"</script", r"<\\/script", app_js, flags=re.I)
     html = html.replace('<link rel="stylesheet" href="vendor/katex.min.css">', "<style>" + css + "</style>")
-    html = html.replace('<link rel="stylesheet" href="styles.css">', "<style>" + (ROOT / "styles.css").read_text() + "</style>")
+    html = re.sub(r'<link rel="stylesheet" href="styles\.css(?:\?[^"]*)?">', lambda _: "<style>" + (ROOT / "styles.css").read_text() + "</style>", html)
     html = html.replace('<script defer src="vendor/katex.min.js"></script>', "")
-    html = html.replace('<script defer src="app.js"></script>', "")
+    html = re.sub(r'<script defer src="app\.js(?:\?[^"]*)?"></script>', "", html)
     html = html.replace("</body>", "<script>" + katex_js + "</script><script>" + app_js + "</script></body>")
     output = ROOT / "dist/post-training-map.html"
     output.parent.mkdir(exist_ok=True)

@@ -8,17 +8,20 @@ const nodes = new Map();
 const partLabels = {
   targets: 'Targets', filter: 'Filter', ce: 'CE', pairs: 'Pairs', ref: 'Ref LLM',
   pair: 'Pair loss', teacher: 'Teacher LLM', tokens: 'Tokens', logits: 'Logits', kl: 'KL',
-  critic: 'Critic LLM', group: 'Group', clip: 'Clip loss', weights: 'Clip weights'
+  critic: 'Critic LLM', group: 'Group', clip: 'Clip loss', weights: 'Clip weights', actor: 'Actor LLM'
 };
 const objectives = new Set(['ce', 'pair', 'kl', 'clip', 'weights']);
-const llmParts = new Set(['ref', 'teacher', 'critic']);
+const llmParts = new Set(['ref', 'teacher', 'critic', 'actor']);
 const partLabel = part => part === 'reward' ? (state.rewardSource === 'model' ? 'Reward LLM' : 'Verifier') : partLabels[part];
 const isLLM = part => llmParts.has(part) || (part === 'reward' && state.rewardSource === 'model');
 const math = (part, tex) => '\\htmlClass{math-part part-' + part + '}{' + tex + '}';
-const logPolicy = math('ce', '\\log\\pi_\\theta(y_t\\mid h_t)');
+const actorPolicy = math('actor', '\\pi_\\theta');
+const logPolicy = math('ce', '\\log ' + actorPolicy + '(y_t\\mid h_t)');
 const clipTerm = math('clip', '\\ell_{\\mathrm{clip}}');
 const groupTerm = math('group', '\\frac{r_i-\\operatorname{mean}(\\mathbf r)}{\\operatorname{std}(\\mathbf r)+\\delta}');
-const klTerm = math('kl', 'D_{\\mathrm{KL}}\\!\\left(p_T(\\cdot\\mid h_t)\\,\\|\\,\\pi_\\theta(\\cdot\\mid h_t)\\right)');
+const klTerm = math('kl', 'D_{\\mathrm{KL}}\\!\\left(p_T(\\cdot\\mid h_t)\\,\\|\\,' + actorPolicy + '(\\cdot\\mid h_t)\\right)');
+const tokenRatio = '\\rho_t=\\frac{' + actorPolicy + '(y_t\\mid h_t)}{\\pi_{\\mathrm{old}}(y_t\\mid h_t)}';
+const groupRatio = '\\rho_{i,t}=\\frac{' + actorPolicy + '(y_{i,t}\\mid h_{i,t})}{\\pi_{\\mathrm{old}}(y_{i,t}\\mid h_{i,t})}';
 const refPlus = math('ref', '\\pi_{\\mathrm{ref}}(y^+\\mid x)');
 const refMinus = math('ref', '\\pi_{\\mathrm{ref}}(y^-\\mid x)');
 const formulas = {
@@ -27,67 +30,67 @@ const formulas = {
 const methods = [
   {
     id: 'sft', title: 'SFT', full: 'Supervised Fine-Tuning', cell: 'nonrl-external',
-    critic: false, parts: ['targets','ce'], connectors: ['→'],
+    critic: false, parts: ['targets','ce','actor'], connectors: ['→','→'],
     formula: '\\mathcal L_{\\mathrm{SFT}}=-\\mathbb E_{(x,y)\\sim\\mathcal D}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
     source: ['SFT / RLHF · InstructGPT', 'https://arxiv.org/abs/2203.02155']
   },
   {
     id: 'rft', title: 'RFT', full: 'Rejection Sampling Fine-Tuning', cell: 'nonrl-external',
-    critic: false, parts: ['reward','filter','ce'], connectors: ['→','→'],
+    critic: false, parts: ['reward','filter','ce','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{RFT}}=-\\mathbb E_{(x,y)\\sim\\mathcal D_{\\mathrm{keep}}}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
     definitions: ['\\mathcal D_{\\mathrm{keep}}=' + math('filter', '\\{(x,y):r(x,y)\\geq\\tau\\}')],
     source: ['RFT / GRPO · DeepSeekMath', 'https://arxiv.org/abs/2402.03300']
   },
   {
     id: 'dpo', title: 'DPO', full: 'Direct Preference Optimization', cell: 'nonrl-external',
-    critic: false, parts: ['pairs','ref','pair'], connectors: ['+','→'],
-    formula: '\\mathcal L_{\\mathrm{DPO}}=-\\mathbb E_{\\mathcal D}\\!\\left[' + math('pair', '\\log\\sigma\\!\\left(\\beta\\left[\\log\\frac{\\pi_\\theta(y^+\\mid x)}{' + refPlus + '}-\\log\\frac{\\pi_\\theta(y^-\\mid x)}{' + refMinus + '}\\right]\\right)') + '\\right]',
+    critic: false, parts: ['pairs','ref','pair','actor'], connectors: ['+','→','→'],
+    formula: '\\mathcal L_{\\mathrm{DPO}}=-\\mathbb E_{\\mathcal D}\\!\\left[' + math('pair', '\\log\\sigma\\!\\left(\\beta\\left[\\log\\frac{' + actorPolicy + '(y^+\\mid x)}{' + refPlus + '}-\\log\\frac{' + actorPolicy + '(y^-\\mid x)}{' + refMinus + '}\\right]\\right)') + '\\right]',
     source: ['DPO · Rafailov et al.', 'https://arxiv.org/abs/2305.18290']
   },
   {
     id: 'kd-hard-off', title: 'Hard distillation', full: 'Off-Policy Hard Distillation', cell: 'nonrl-external',
-    critic: false, parts: ['teacher','tokens','ce'], connectors: ['→','→'],
+    critic: false, parts: ['teacher','tokens','ce','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{hard}}=-\\mathbb E_{x,\\,y\\sim ' + math('teacher', 'p_T') + '}\\!\\left[\\frac1{|y|}\\sum_t ' + logPolicy + '\\right]',
     source: ['Hard distillation · Sequence-Level Knowledge Distillation', 'https://arxiv.org/abs/1606.07947']
   },
   {
     id: 'kd-off', title: 'Soft distillation', full: 'Off-Policy Soft Distillation', cell: 'nonrl-external',
-    critic: false, parts: ['teacher','logits','kl'], connectors: ['→','→'],
+    critic: false, parts: ['teacher','logits','kl','actor'], connectors: ['→','→','→'],
     formula: '\\mathcal L_{\\mathrm{KD}}=\\mathbb E_{x,\\,y\\sim ' + math('teacher', 'p_T') + '}\\!\\left[\\frac1{|y|}\\sum_t ' + klTerm + '\\right]',
     source: ['Soft distillation · Generalized Knowledge Distillation', 'https://arxiv.org/abs/2306.13649']
   },
   {
     id: 'kd-hard-on', title: 'Hard distillation', full: 'On-Policy Hard Distillation · Teacher Labels', cell: 'nonrl-current',
-    critic: false, parts: ['teacher','tokens','ce'], connectors: ['→','→'],
-    formula: '\\mathcal L_{\\mathrm{hard,on}}=-\\mathbb E_{x,\\,y\\sim\\operatorname{sg}(\\pi_\\theta)}\\!\\left[\\frac1{|y|}\\sum_t ' + math('ce', '\\log\\pi_\\theta(\\tilde y_t\\mid h_t)') + '\\right]',
+    critic: false, parts: ['teacher','tokens','ce','actor'], connectors: ['→','→','→'],
+    formula: '\\mathcal L_{\\mathrm{hard,on}}=-\\mathbb E_{x,\\,y\\sim\\operatorname{sg}(' + actorPolicy + ')}\\!\\left[\\frac1{|y|}\\sum_t ' + math('ce', '\\log ' + actorPolicy + '(\\tilde y_t\\mid h_t)') + '\\right]',
     definitions: [math('tokens', '\\tilde y_t') + '=\\operatorname*{arg\\,max}_v\\,' + math('teacher', 'p_T(v\\mid h_t)')],
     source: ['On-policy hard labels · DAgger-style imitation', 'https://arxiv.org/abs/1011.0686']
   },
   {
     id: 'kd-on', title: 'Soft distillation', full: 'On-Policy Soft Distillation · Direct KL (GKD)', cell: 'nonrl-current',
-    critic: false, parts: ['teacher','logits','kl'], connectors: ['→','→'],
-    formula: '\\mathcal L_{\\mathrm{GKD}}=\\mathbb E_{x,\\,y\\sim\\operatorname{sg}(\\pi_\\theta)}\\!\\left[\\frac1{|y|}\\sum_t ' + klTerm + '\\right]',
+    critic: false, parts: ['teacher','logits','kl','actor'], connectors: ['→','→','→'],
+    formula: '\\mathcal L_{\\mathrm{GKD}}=\\mathbb E_{x,\\,y\\sim\\operatorname{sg}(' + actorPolicy + ')}\\!\\left[\\frac1{|y|}\\sum_t ' + klTerm + '\\right]',
     source: ['On-policy KL matching · GKD', 'https://arxiv.org/abs/2306.13649']
   },
   {
     id: 'ppo', title: 'PPO', full: 'Proximal Policy Optimization', cell: 'rl-current',
-    critic: true, parts: ['ref','reward','critic','clip'], connectors: ['+','+','→'],
-    formula: '\\mathcal J_{\\mathrm{PPO}}=\\mathbb E_t[' + clipTerm + '(\\rho_t,\\hat A_t)]',
-    definitions: ['\\hat A_t=\\operatorname{GAE}(r_t^{\\mathrm{reg}},' + math('critic', 'V_\\psi') + ')'],
+    critic: true, parts: ['ref','reward','critic','clip','actor'], connectors: ['+','+','→','→'],
+    formula: '\\mathcal J_{\\mathrm{PPO}}=\\mathbb E_t[' + clipTerm + '(' + math('actor', '\\rho_t') + ',\\hat A_t)]',
+    definitions: [tokenRatio, '\\hat A_t=\\operatorname{GAE}(r_t^{\\mathrm{reg}},' + math('critic', 'V_\\psi') + ')'],
     source: ['PPO · Schulman et al.', 'https://arxiv.org/abs/1707.06347']
   },
   {
     id: 'grpo', title: 'GRPO', full: 'Group Relative Policy Optimization', cell: 'rl-current',
-    critic: false, parts: ['ref','reward','group','clip'], connectors: ['+','+','→'],
-    formula: '\\mathcal J_{\\mathrm{GRPO}}=\\mathbb E\\!\\left[\\frac1G\\sum_i\\frac1{|y_i|}\\sum_t\\bigl(' + clipTerm + '(\\rho_{i,t},\\hat A_i)-\\beta K_{i,t}\\bigr)\\right]',
-    definitions: ['\\hat A_i=' + groupTerm],
+    critic: false, parts: ['ref','reward','group','clip','actor'], connectors: ['+','+','→','→'],
+    formula: '\\mathcal J_{\\mathrm{GRPO}}=\\mathbb E\\!\\left[\\frac1G\\sum_i\\frac1{|y_i|}\\sum_t\\bigl(' + clipTerm + '(' + math('actor', '\\rho_{i,t}') + ',\\hat A_i)-\\beta K_{i,t}\\bigr)\\right]',
+    definitions: [groupRatio, '\\hat A_i=' + groupTerm],
     source: ['GRPO · DeepSeekMath', 'https://arxiv.org/abs/2402.03300']
   },
   {
     id: 'cispo', title: 'CISPO', full: 'Clipped IS-weight Policy Optimization', cell: 'rl-current',
-    critic: false, parts: ['reward','group','weights'], connectors: ['+','→'],
-    formula: '\\mathcal J_{\\mathrm{CISPO}}=\\mathbb E\\!\\left[\\frac1{\\sum_i|y_i|}\\sum_{i,t}\\operatorname{sg}(\\bar\\rho_{i,t})\\,\\hat A_i\\log\\pi_\\theta(y_{i,t}\\mid h_{i,t})\\right]',
-    definitions: ['\\hat A_i=' + groupTerm, '\\bar\\rho_{i,t}=' + math('weights', '\\operatorname{clip}(\\rho_{i,t},1-\\epsilon_\\ell,1+\\epsilon_h)')],
+    critic: false, parts: ['reward','group','weights','actor'], connectors: ['+','→','→'],
+    formula: '\\mathcal J_{\\mathrm{CISPO}}=\\mathbb E\\!\\left[\\frac1{\\sum_i|y_i|}\\sum_{i,t}\\operatorname{sg}(\\bar\\rho_{i,t})\\,\\hat A_i\\log ' + actorPolicy + '(y_{i,t}\\mid h_{i,t})\\right]',
+    definitions: [groupRatio, '\\hat A_i=' + groupTerm, '\\bar\\rho_{i,t}=' + math('weights', '\\operatorname{clip}(\\rho_{i,t},1-\\epsilon_\\ell,1+\\epsilon_h)')],
     source: ['CISPO · MiniMax-M1', 'https://arxiv.org/abs/2506.13585']
   }
 ];
@@ -96,11 +99,18 @@ function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+function componentHTML(part) {
+  const label = partLabel(part);
+  const title = part === 'actor' ? 'Trainable policy πθ; the loss updates its weights' : 'Highlight ' + label;
+  const classes = 'part-button' + (objectives.has(part) ? ' objective' : '') + (isLLM(part) ? ' llm-component' : '') + (part === 'actor' ? ' actor-component' : '');
+  return '<button class="' + classes + '" data-part="' + part + '" data-component-type="' + (isLLM(part) ? 'llm' : 'function') + '" aria-label="Highlight shared component: ' + escapeHTML(label) + (part === 'actor' ? ', trainable policy' : '') + '" aria-pressed="false" title="' + escapeHTML(title) + '">' + escapeHTML(label) + '</button>';
+}
+
 function cardHTML(m) {
   return '<article class="method-card" id="card-' + m.id + '" data-id="' + m.id + '" data-critic="' + (m.critic ? 'yes' : 'none') + '">' +
     '<div class="method-header"><button class="method-toggle" data-toggle="' + m.id + '" aria-expanded="false" aria-controls="detail-' + m.id + '">' +
       '<i class="critic-dot ' + (m.critic ? 'has-critic' : 'no-critic') + '" aria-label="' + (m.critic ? 'Critic required' : 'No critic') + '"></i><span class="method-name">' + escapeHTML(m.title) + '</span><span class="chevron" aria-hidden="true">⌄</span></button>' +
-      '<div class="pipeline" aria-label="Components">' + m.parts.map((part, i) => (i ? '<span class="part-connector" aria-hidden="true">' + m.connectors[i-1] + '</span>' : '') + '<button class="part-button' + (objectives.has(part) ? ' objective' : '') + (isLLM(part) ? ' llm-component' : '') + '" data-part="' + part + '" data-component-type="' + (isLLM(part) ? 'llm' : 'function') + '" aria-label="Highlight shared component: ' + escapeHTML(partLabel(part)) + '" aria-pressed="false" title="Highlight ' + escapeHTML(partLabel(part)) + '">' + escapeHTML(partLabel(part)) + '</button>').join('') + '</div>' +
+      '<div class="pipeline" aria-label="Training signal and actor update">' + m.parts.map((part, i) => (i ? '<span class="part-connector" aria-hidden="true">' + m.connectors[i-1] + '</span>' : '') + componentHTML(part)).join('') + '</div>' +
     '</div><div class="method-detail" id="detail-' + m.id + '" hidden><h3 class="formula-title">' + escapeHTML(m.full) + '</h3><div class="formula" data-method-formula="' + m.id + '"></div>' + (m.definitions || []).map((_, i) => '<div class="formula definition" data-definition-index="' + i + '"></div>').join('') + '</div></article>';
 }
 

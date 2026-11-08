@@ -13,7 +13,8 @@ Open [the standalone HTML](dist/post-training-map.html) in a browser. It works o
 - Expand all reveals every formula with the method name above it.
 - Hover or click a component to highlight the same component across the map and its rendered equations. Escape clears a selection.
 - Dots indicate critic requirements. The information button opens notation, placement assumptions, and primary sources.
-- Blue blocks identify LLM-based components: Teacher LLM, Ref LLM, Critic LLM, and Reward LLM. The reward-source switch changes the evaluator in RFT, PPO, GRPO, and CISPO between Reward LLM and a non-neural Verifier.
+- Every pipeline ends with a loss → Actor LLM update. The stronger blue Actor LLM block is the trainable policy πθ; click it to highlight the actor in every card and formula. For distillation, this is the student model. RL cards show πθ explicitly in the importance-ratio definition.
+- Blue blocks identify LLM-based components: Actor LLM, Teacher LLM, Ref LLM, Critic LLM, and Reward LLM. The reward-source switch changes the evaluator in RFT, PPO, GRPO, and CISPO between Reward LLM and a non-neural Verifier.
 - Objectives are shown without line breaks inside expressions. Independent definitions appear on separate lines.
 
 Cards are created once. Expanding, collapsing, and highlighting update existing DOM nodes without replacing, moving, hiding, or dimming other methods.
