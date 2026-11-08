@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Compare LLM post-training methods by data source, RL objective, and shared components.">
+  <title>Post-training</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='11' height='11' rx='2' fill='%234b7a66'/%3E%3Crect x='18' y='3' width='11' height='11' rx='2' fill='%234b7a66'/%3E%3Crect x='3' y='18' width='11' height='11' rx='2' fill='%234b7a66'/%3E%3Crect x='18' y='18' width='11' height='11' rx='2' fill='%23cbded1'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="vendor/katex.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="vendor/katex.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <h1>Post-training</h1>
+      <div class="header-controls">
+        <button id="expand-all" class="plain-button" aria-pressed="false">Expand all</button>
+        <button id="notes-toggle" class="info-button" aria-label="Open notation and sources" aria-expanded="false" aria-controls="reading-notes">i</button>
+      </div>
+    </header>
+
+    <div class="map-controls">
+      <div class="legend" aria-label="Component and critic colors"><span class="llm-key">LLM</span><span><i class="critic-dot no-critic"></i>No critic</span><span><i class="critic-dot has-critic"></i>Critic</span></div>
+      <div class="reward-control"><span>Reward</span><div class="reward-options" role="group" aria-label="Reward source"><button data-reward-source="model" aria-pressed="false">Reward LLM</button><button data-reward-source="verifier" aria-pressed="true">Verifier</button></div></div>
+    </div>
+
+    <div class="matrix" id="matrix">
+      <div class="axis-corner" aria-hidden="true"></div>
+      <h2 class="column-heading">Off-policy</h2>
+      <h2 class="column-heading">On-policy</h2>
+      <h2 class="row-heading">No RL</h2>
+      <section class="cell" id="nonrl-external" aria-label="No RL, off-policy"><h3 class="mobile-cell-heading">No RL · Off-policy</h3><div class="card-list"></div></section>
+      <section class="cell" id="nonrl-current" aria-label="No RL, on-policy"><h3 class="mobile-cell-heading">No RL · On-policy</h3><div class="card-list"></div></section>
+      <h2 class="row-heading rl-row">RL</h2>
+      <section class="cell" id="rl-external" aria-label="RL, off-policy"><h3 class="mobile-cell-heading">RL · Off-policy</h3><div class="card-list"></div><span class="empty-cell" aria-label="No selected method in this quadrant">—</span></section>
+      <section class="cell" id="rl-current" aria-label="RL, on-policy"><h3 class="mobile-cell-heading">RL · On-policy</h3><div class="card-list"></div></section>
+    </div>
+
+    <section id="reading-notes" class="reading-notes" aria-label="Notation and sources" hidden>
+      <div><h2>Reading the map</h2><p>Click a component to highlight the same part in other methods. Click a method name to reveal its formula.</p><p>Blue blocks are LLM-based components. Reward and critic models use scalar output heads. The Reward switch selects a learned reward model or a correctness verifier for RFT, PPO, GRPO, and CISPO.</p><p>Placements describe common recipes. Off-policy means external responses; offline means a fixed dataset. PPO, GRPO, and CISPO sample recent policy snapshots and correct drift with importance ratios.</p><p>Hard distillation matches teacher tokens with CE; soft distillation matches teacher distributions with KL. On-policy hard distillation uses teacher labels on student-generated prefixes; on-policy soft distillation uses direct KL matching (GKD). Both detach the sampling step. Policy-gradient distillation is another variant.</p><p><strong>πθ</strong> policy · <strong>πref</strong> reference · <strong>πold</strong> rollout snapshot · <strong>pT</strong> teacher · <strong>hₜ</strong> prefix · <strong>sg</strong> stop-gradient. Minimize L; maximize J. PPO rewards include reference KL; GRPO shows it explicitly; the original CISPO recipe omits it.</p><div class="formula shared-definition" data-formula="clip"></div></div>
+      <div><h2>Sources</h2><div id="source-list"></div></div>
+    </section>
+  </main>
+</body>
+</html>
