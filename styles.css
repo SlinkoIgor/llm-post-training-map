@@ -24,7 +24,7 @@ h1 { margin: 0; font-size: 30px; line-height: 1.2; font-weight: 580; letter-spac
 .legend > span { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .map-controls { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 26px; flex-wrap: wrap; }
 .llm-key { padding: 4px 8px; background: #eaf0ff; border: 1px solid #d5dff5; color: #536fa6; border-radius: 4px; }
-.alternative-key { display: inline-block; width: 18px; height: 12px; border: 1px dashed #aeb7c4; border-radius: 3px; }
+.possible-mode-key { width: 18px; height: 12px; border: 1px dashed #b6becb; border-radius: 3px; }
 .reward-control { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #888d96; }
 .reward-options { display: flex; gap: 2px; padding: 2px; border: 1px solid #e3e5e9; border-radius: 6px; }
 .reward-options button { background: transparent; border: 0; border-radius: 4px; padding: 6px 9px; font-size: 12px; color: #9399a4; white-space: nowrap; }
@@ -45,18 +45,19 @@ h1 { margin: 0; font-size: 30px; line-height: 1.2; font-weight: 580; letter-spac
 .column-heading + .column-heading { border-left: 1px solid var(--line); }
 .row-heading { display: flex; align-items: flex-start; margin: 0; padding: 26px 18px 26px 0; font-size: 13px; line-height: 1.5; font-weight: 500; color: #92969d; border-bottom: 1px solid var(--line); }
 .cell { min-width: 0; padding: 7px 14px; border-bottom: 1px solid var(--line); }
-#no-reward-online, #reward-online { border-left: 1px solid var(--line); }
+#no-reward-current, #reward-current { border-left: 1px solid var(--line); }
 .card-list { display: flex; flex-direction: column; }
 .method-card { border: 1px solid transparent; border-bottom-color: #f0f0f2; border-radius: 6px; min-width: 0; position: relative; scroll-margin-top: 22px; }
 .method-card:last-child { border-bottom-color: transparent; }
-.method-card.alternative { border: 1px dashed #c1c8d2; margin: 4px 0; }
 .method-card:hover { background: #fafafb; }
 .method-card.expanded { background: #fafafb; }
 .method-header { padding: 14px 12px 15px; cursor: pointer; }
 .method-toggle { width: 100%; display: flex; align-items: center; gap: 9px; border: 0; padding: 0 6px 0 0; background: none; text-align: left; }
 .method-toggle .critic-dot { width: 6px; height: 6px; }
-.method-name { font-size: 16px; line-height: 1.3; font-weight: 570; letter-spacing: -.3px; }
-.method-mode { margin-left: auto; padding-left: 8px; color: #8d949f; font-size: 12px; font-weight: 400; white-space: nowrap; }
+.method-name { min-width: 0; font-size: 16px; line-height: 1.3; font-weight: 570; letter-spacing: -.3px; }
+.method-modes { display: flex; align-items: center; flex-shrink: 0; gap: 5px; margin-left: auto; }
+.mode-tag { padding: 3px 6px; border: 1px solid #e3e6eb; border-radius: 4px; background: #f5f6f8; color: #7d8592; font-size: 11px; line-height: 1.3; font-weight: 400; white-space: nowrap; }
+.mode-tag.possible { border: 1px dashed #b6becb; background: transparent; }
 .method-toggle .chevron { margin-left: 2px; width: 16px; flex-shrink: 0; text-align: center; }
 .pipeline { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 12px 0 0 15px; }
 .part-button { border: 1px solid #e6e7ea; border-radius: 4px; padding: 4px 8px; line-height: 1.3; background: #f6f6f7; font-size: 11px; color: #747982; white-space: nowrap; transition: background .12s, border-color .12s, color .12s; }
